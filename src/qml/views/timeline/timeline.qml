@@ -251,7 +251,9 @@ Rectangle {
             focus: true
             hoverEnabled: true
             onClicked: {
-                timeline.position = (tracksFlickable.contentX + mouse.x) / multitrack.scaleFactor
+                var newPos = (tracksFlickable.contentX + mouse.x) / multitrack.scaleFactor
+//                Logic.scrollIfNeededMouse(newPos)
+                timeline.position = newPos
                 bubbleHelp.hide()
             }
             property bool scim: false
@@ -710,7 +712,14 @@ Rectangle {
     
     Connections {
         target: timeline
-        onPositionChanged: if (!stopScrolling) Logic.scrollIfNeeded()
+        onPositionChanged: if (!stopScrolling) {
+            console.log('speed ' + producer.speed)
+            if (producer.speed == 0.0) {
+                Logic.scrollIfNeededMouse(timeline.position)
+            } else {
+                Logic.scrollIfNeeded()
+            }
+        }
         onDragging: Logic.dragging(pos, duration)
         onDropped: Logic.dropped()
         onDropAccepted: Logic.acceptDrop(xml)
@@ -744,9 +753,9 @@ Rectangle {
         property var item
         property bool backwards
         onTriggered: {
-            var delta = backwards? -10 : 10
+            var delta = 100 * (backwards? -1 : 1)
             if (item) item.x += delta
-            tracksFlickable.contentX += delta
+            tracksFlickable.contentX = Math.max(tracksFlickable.contentX + delta, 0)
             if (tracksFlickable.contentX <= 0)
                 stop()
         }

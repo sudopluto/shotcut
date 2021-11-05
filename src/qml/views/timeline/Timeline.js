@@ -27,7 +27,27 @@ function scrollIfNeeded(center) {
             tracksFlickable.contentX = x - tracksFlickable.width * 0.5;
     } else {
         if (x > tracksFlickable.contentX + tracksFlickable.width - 50)
-            tracksFlickable.contentX = x - tracksFlickable.width + 50;
+            tracksFlickable.contentX = x - 50; // page right
+        else if (x < 50)
+            tracksFlickable.contentX = 0;
+        else if (x < tracksFlickable.contentX + 50) // page left
+            tracksFlickable.contentX = Math.max(x - (tracksFlickable.width - 50)    , 0);
+    }
+}
+
+function scrollIfNeededMouse(position) {
+    var x = position * multitrack.scaleFactor;
+    if (!tracksFlickable) return;
+    if (settings.timelineCenterPlayhead) {
+        if (x > tracksFlickable.contentX + tracksFlickable.width * 0.5)
+            tracksFlickable.contentX = x - tracksFlickable.width * 0.5;
+        else if (x < tracksFlickable.width * 0.5)
+            tracksFlickable.contentX = 0;
+        else if (x < tracksFlickable.contentX + tracksFlickable.width * 0.5)
+            tracksFlickable.contentX = x - tracksFlickable.width * 0.5;
+    } else {
+        if (x > tracksFlickable.contentX + tracksFlickable.width - 50)
+            tracksFlickable.contentX = x - tracksFlickable.width + 100;
         else if (x < 50)
             tracksFlickable.contentX = 0;
         else if (x < tracksFlickable.contentX + 50)
