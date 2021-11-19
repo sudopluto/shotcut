@@ -24,7 +24,7 @@ import QtQuick.Window 2.12
 import Shotcut.Controls 1.0 as Shotcut
 
 
-Item {
+Shotcut.KeyframableFilter {
     // Constants
 
     property double thresholdMin: 0.00003
@@ -63,6 +63,11 @@ Item {
 
     property var allParams: [thr1Param, thr2Param, thr3Param, thr4Param, linkParam, rangeParam, directionParam, blurParam, couplingParam]
 
+    keyframableParameters: ['av.1thr', 'av.2thr', 'av.3thr', 'av.4thr', 'av.range', 'av.direction']
+    startValues: [thr1Default, thr2Default, thr3Default, thr4Default, rangeDefault, directionDefault]
+    middleValues: [thr1Default, thr2Default, thr3Default, thr4Default, rangeDefault, directionDefault]
+    endValues: [thr1Default, thr2Default, thr3Default, thr4Default, rangeDefault, directionDefault]
+
 
     // Conversion functions between filter and UI units
 
@@ -98,14 +103,14 @@ Item {
 
     // UI management functions
 
-    function setThreshold (param, pct) {
+    function setThreshold (param, pct, keyframesButton, position) {
         if (idLink.checked) {
             var thr = pctToThr(pct)
 
-            filter.set(thr1Param, thr)
-            filter.set(thr2Param, thr)
-            filter.set(thr3Param, thr)
-            filter.set(thr4Param, thr)
+            updateFilter(thr1Param, thr, thr1KeyframesButton, position)
+            updateFilter(thr2Param, thr, thr2KeyframesButton, position)
+            updateFilter(thr3Param, thr, thr3KeyframesButton, position)
+            updateFilter(thr4Param, thr, thr4KeyframesButton, position)
 
             idThr1.value = pct
             idThr2.value = pct
@@ -113,29 +118,59 @@ Item {
             idThr4.value = pct
         }
         else {
-            filter.set(param, pctToThr(pct))
+            updateFilter(param, pctToThr(pct), keyframesButton, position)
         }
     }
 
+    function hasKeyframes(param) {
+        return filter.animateIn <= 0 && filter.animateOut <= 0 && filter.keyframeCount(param) > 0
+    }
 
     function setControls () {
         idLink.checked = false
-        idThr1.value = thrToPct(filter.getDouble(thr1Param))
-        idThr2.value = thrToPct(filter.getDouble(thr2Param))
-        idThr3.value = thrToPct(filter.getDouble(thr3Param))
-        idThr4.value = thrToPct(filter.getDouble(thr4Param))
+        var position = getPosition()
+        blockUpdate = true
+        idThr1.value = thrToPct(filter.getDouble(thr1Param, position))
+        thr1KeyframesButton.checked = hasKeyframes(thr1Param)
+        idThr2.value = thrToPct(filter.getDouble(thr2Param, position))
+        thr2KeyframesButton.checked = hasKeyframes(thr2Param)
+        idThr3.value = thrToPct(filter.getDouble(thr3Param, position))
+        thr3KeyframesButton.checked = hasKeyframes(thr3Param)
+        idThr4.value = thrToPct(filter.getDouble(thr4Param, position))
+        thr4KeyframesButton.checked = hasKeyframes(thr4Param)
         idLink.checked = parseInt(filter.get(linkParam))
 
         // The Randomize checkboxes must be set first or else sign inversion will happen.
         idRangeRand.checked = parseInt(filter.get(rangeParam)) >= 0 ? true : false
-        idRange.value = sqrToRoot(parseInt(filter.get(rangeParam)))
+        idRange.value = sqrToRoot(parseInt(filter.getDouble(rangeParam, position)))
+        rangeKeyframesButton.checked = hasKeyframes(rangeParam)
         idDirectionRand.checked = filter.getDouble(directionParam) >= 0 ? true : false
-        idDirection.value = radToDeg(filter.getDouble(directionParam))
+        idDirection.value = radToDeg(filter.getDouble(directionParam, position))
+        directionKeyframesButton.checked = hasKeyframes(directionParam)
+        blockUpdate = false
 
         idBlur.checked = parseInt(filter.get(blurParam))
         idCoupling.checked = parseInt(filter.get(couplingParam))
+        enableControls(isSimpleKeyframesActive())
     }
 
+    function enableControls(enabled) {
+        idThr1.enabled = enabled
+        idThr2.enabled = enabled
+        idThr3.enabled = enabled
+        idThr4.enabled = enabled
+        idRange.enabled = enabled
+        idDirection.enabled = enabled
+    }
+
+    function updateSimpleKeyframes() {
+        setThreshold(thr1Param, idThr1.value, thr1KeyframesButton, null)
+        setThreshold(thr2Param, idThr2.value, thr2KeyframesButton, null)
+        setThreshold(thr3Param, idThr3.value, thr3KeyframesButton, null)
+        setThreshold(thr4Param, idThr4.value, thr4KeyframesButton, null)
+        updateFilter(rangeParam, idRange.storedValue, rangeKeyframesButton, null)
+        updateFilter(directionParam, idDirection.storedValue, directionKeyframesButton, null)
+    }
 
     Component.onCompleted: {
         filter.blockSignals = true
@@ -215,7 +250,7 @@ Item {
 
 
     GridLayout {
-        columns: 3
+        columns: 4
         anchors.fill: parent
         anchors.margins: 8
 
@@ -227,9 +262,13 @@ Item {
         }
         Shotcut.Preset {
             id: idPreset
-            Layout.columnSpan: 2
+            Layout.columnSpan: 3
             parameters: allParams
-            onPresetSelected: setControls()
+            onBeforePresetLoaded: resetSimpleKeyframes()
+            onPresetSelected: {
+                setControls()
+                initializeSimpleKeyframes()
+            }
         }
 
         // Row split
@@ -245,10 +284,17 @@ Item {
             maximumValue: 100
             decimals: 1
             suffix: ' %'
-            onValueChanged: setThreshold(thr1Param, value)
+            onValueChanged: setThreshold(thr1Param, value, thr1KeyframesButton, getPosition())
         }
         Shotcut.UndoButton {
             onClicked: idThr1.value = thrToPct(thr1Default)
+        }
+        Shotcut.KeyframesButton {
+            id: thr1KeyframesButton
+            onToggled: {
+                enableControls(true)
+                toggleKeyframes(checked, thr1Param, pctToThr(idThr1.value))
+            }
         }
 
         // Row split
@@ -264,10 +310,17 @@ Item {
             maximumValue: 100
             decimals: 1
             suffix: ' %'
-            onValueChanged: setThreshold(thr2Param, value)
+            onValueChanged: setThreshold(thr2Param, value, thr2KeyframesButton, getPosition())
         }
         Shotcut.UndoButton {
             onClicked: idThr2.value = thrToPct(thr2Default)
+        }
+        Shotcut.KeyframesButton {
+            id: thr2KeyframesButton
+            onToggled: {
+                enableControls(true)
+                toggleKeyframes(checked, thr2Param, pctToThr(idThr2.value))
+            }
         }
 
         // Row split
@@ -283,10 +336,17 @@ Item {
             maximumValue: 100
             decimals: 1
             suffix: ' %'
-            onValueChanged: setThreshold(thr3Param, value)
+            onValueChanged: setThreshold(thr3Param, value, thr3KeyframesButton, getPosition())
         }
         Shotcut.UndoButton {
             onClicked: idThr3.value = thrToPct(thr3Default)
+        }
+        Shotcut.KeyframesButton {
+            id: thr3KeyframesButton
+            onToggled: {
+                enableControls(true)
+                toggleKeyframes(checked, thr3Param, pctToThr(idThr3.value))
+            }
         }
 
         // Row split
@@ -302,10 +362,17 @@ Item {
             maximumValue: 100
             decimals: 1
             suffix: ' %'
-            onValueChanged: setThreshold(thr4Param, value)
+            onValueChanged: setThreshold(thr4Param, value, thr4KeyframesButton, getPosition())
         }
         Shotcut.UndoButton {
             onClicked: idThr4.value = thrToPct(thr4Default)
+        }
+        Shotcut.KeyframesButton {
+            id: thr4KeyframesButton
+            onToggled: {
+                enableControls(true)
+                toggleKeyframes(checked, thr4Param, pctToThr(idThr4.value))
+            }
         }
 
         // Row split
@@ -320,6 +387,7 @@ Item {
         }
         Item {
             Layout.fillWidth: true
+            Layout.columnSpan: 2
         }
 
         // Row split
@@ -334,12 +402,21 @@ Item {
             minimumValue: 0
             maximumValue: 64
             decimals: 1
-            onValueChanged: filter.set(rangeParam, idRangeRand.checked ? rootToSqr(value) : -rootToSqr(value))
+            property int storedValue: idRangeRand.checked ? rootToSqr(value) : -rootToSqr(value)
+            onValueChanged: updateFilter(rangeParam, storedValue, rangeKeyframesButton, getPosition())
+
         }
         Shotcut.UndoButton {
             onClicked: {
                 filter.set(rangeParam, rangeDefault)
                 setControls()
+            }
+        }
+        Shotcut.KeyframesButton {
+            id: rangeKeyframesButton
+            onToggled: {
+                enableControls(true)
+                toggleKeyframes(checked, rangeParam, idRange.storedValue)
             }
         }
 
@@ -355,6 +432,7 @@ Item {
         }
         Item {
             Layout.fillWidth: true
+            Layout.columnSpan: 2
         }
 
         // Row split
@@ -369,12 +447,20 @@ Item {
             minimumValue: 0
             maximumValue: 360
             suffix: ' °'
-            onValueChanged: filter.set(directionParam, idDirectionRand.checked ? degToRad(value) : -degToRad(value))
+            property real storedValue: idDirectionRand.checked ? degToRad(value) : -degToRad(value)
+            onValueChanged: updateFilter(directionParam, storedValue, directionKeyframesButton, getPosition())
         }
         Shotcut.UndoButton {
             onClicked: {
                 filter.set(directionParam, directionDefault)
                 setControls()
+            }
+        }
+        Shotcut.KeyframesButton {
+            id: directionKeyframesButton
+            onToggled: {
+                enableControls(true)
+                toggleKeyframes(checked, directionParam, idDirection.storedValue)
             }
         }
 
@@ -390,6 +476,7 @@ Item {
         }
         Item {
             Layout.fillWidth: true
+            Layout.columnSpan: 2
         }
 
         // Row split
@@ -409,6 +496,9 @@ Item {
                 idBlur.checked = blurDefault
             }
         }
+        Item {
+            Layout.fillWidth: true
+        }
 
         // Row split
 
@@ -427,12 +517,28 @@ Item {
                 idCoupling.checked = couplingDefault
             }
         }
+        Item {
+            Layout.fillWidth: true
+        }
 
         // Filler
 
         Item {
-            Layout.columnSpan: 3
             Layout.fillHeight: true
         }
+    }
+
+    Connections {
+        target: filter
+        onInChanged: updateSimpleKeyframes()
+        onOutChanged: updateSimpleKeyframes()
+        onAnimateInChanged: updateSimpleKeyframes()
+        onAnimateOutChanged: updateSimpleKeyframes()
+        onPropertyChanged: setControls()
+    }
+
+    Connections {
+        target: producer
+        onPositionChanged: setControls()
     }
 }

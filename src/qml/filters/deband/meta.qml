@@ -16,10 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 import QtQuick 2.12
 import org.shotcut.qml 1.0
-
 
 Metadata {
     type: Metadata.Filter
@@ -27,4 +25,59 @@ Metadata {
     objectName: 'deband'
     mlt_service: 'avfilter.deband'
     qml: 'ui.qml'
+    keyframes {
+        allowAnimateIn: true
+        allowAnimateOut: true
+        simpleProperties: ['av.1thr', 'av.2thr', 'av.3thr', 'av.4thr', 'av.range', 'av.direction']
+        parameters: [
+            Parameter {
+                name: qsTr('Contrast threshold')
+                property: 'av.1thr'
+                isSimple: true
+                isCurve: true
+                minimum: 0.00003
+                maximum: 0.5
+            },
+            Parameter {
+                name: qsTr('Blue threshold')
+                property: 'av.2thr'
+                isSimple: true
+                isCurve: true
+                minimum: 0.00003
+                maximum: 0.5
+            },
+            Parameter {
+                name: qsTr('Red threshold')
+                property: 'av.3thr'
+                isSimple: true
+                isCurve: true
+                minimum: 0.00003
+                maximum: 0.5
+            },
+            Parameter {
+                name: qsTr('Alpha threshold')
+                property: 'av.4thr'
+                isSimple: true
+                isCurve: true
+                minimum: 0.00003
+                maximum: 0.5
+            },
+            Parameter {
+                name: qsTr('Pixel range')
+                property: 'av.range'
+                isSimple: true
+                isCurve: true
+                minimum: 0
+                maximum: 64
+            },
+            Parameter {
+                name: qsTr('Direction')
+                property: 'av.direction'
+                isSimple: true
+                isCurve: true
+                minimum: 0
+                maximum: 360
+            }
+        ]
+    }
 }
